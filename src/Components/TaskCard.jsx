@@ -4,22 +4,71 @@ import * as React from "react";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { AuthContext } from "../authprovider/Authprovider";
-import { DragDropContext } from "react-beautiful-dnd";
-import { Draggable } from "react-beautiful-dnd";
-import { Droppable } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 
 const TaskCard = () => {
   const { user } = React.useContext(AuthContext);
-  const [expandedTask, setExpandedTask] = React.useState({});
-  const [tasksData, setTasksData] = React.useState([]); 
   const mainAxios = useAxios();
-  const { isPending, data } = useQuery({
-    queryKey: ["taskData"],
-    queryFn: async () => {
+  const [expandedTask, setExpandedTask] = React.useState({});
+  const [columns, setColumns] = React.useState([]);
+  
+
+  const fetchData = async () => {
+    try {
       const res = await mainAxios.get(`/tasks/${user?.email}`);
       return res.data;
-    },
+    } catch (error) {
+      throw new Error(error);
+    }
+  };
+
+  const {
+    isPending,
+    data: dd,
+    refetch,
+  } = useQuery({
+    queryKey: ["taskData"],
+    queryFn: fetchData,
   });
+  
+  
+  React.useEffect(() => {
+      if(dd){
+        const updatedColumns = [
+          {
+            name: "Todo",
+            id: "111",
+            items: dd,
+          },
+          {
+            name: "On going",
+            id: "222",
+            items: [],
+          },
+          {
+            name: "Completed",
+            id: "444",
+            items: [],
+          },
+        ];
+        setColumns(updatedColumns);
+      }
+      else {
+        refetch()
+      }
+  }, [dd]);
+
+
+
+  
+  
+
+  const toggleExpand = (taskId) => {
+    setExpandedTask((prevState) => ({
+      ...prevState,
+      [taskId]: !prevState[taskId],
+    }));
+  };
 
   if (isPending) {
     return (
@@ -31,177 +80,154 @@ const TaskCard = () => {
     );
   }
 
-  const toggleExpand = (taskId) => {
-    setExpandedTask((prevState) => ({
-      ...prevState,
-      [taskId]: !prevState[taskId],
-    }));
-  };
+  const onDragEnd = async (result) => {
+    if (!result.destination) return;
 
+    const { source, destination } = result;
 
-  const handleDragDrop = (results) =>{
-    // console.log(results)
-    const { source, destination, draggableId } = results;
-    // console.log(results.type)
-    if(!destination) return
+    const sourceColumn = columns.find((col) => col.id === source.droppableId);
+    const destinationColumn = columns.find(
+      (col) => col.id === destination.droppableId
+    );
 
-    if(source.droppableId === destination.droppableId && source.index === destination.index) return
+    if (source.droppableId === destination.droppableId) {
+      const items = Array.from(sourceColumn.items);
+      const [removed] = items.splice(source.index, 1);
+      items.splice(destination.index, 0, removed);
 
-    
-    
-    if (destination.droppableId === "ongoing") {
-      const draggedTask = data.find((item) => item._id === draggableId);
-      draggedTask.status = "ongoing";
-      const updatedData = Array.from(data);
+      const updatedColumn = {
+        ...sourceColumn,
+        items: items,
+      };
 
-      // Assuming your task has moved to the "On-going" section
-      if (destination.droppableId === "ongoing") {
-        // Remove the dragged task from its previous position
-        updatedData.splice(source.index, 1);
+      const updatedColumns = columns.map((col) =>
+        col.id === source.droppableId ? updatedColumn : col
+      );
 
-        // Add the dragged task to the new position (in this case, the end of "On-going")
-        updatedData.push(draggedTask);
+      setColumns(updatedColumns);
+    } else {
+      const sourceItems = Array.from(sourceColumn.items);
+      const destItems = Array.from(destinationColumn.items);
+      const [removed] = sourceItems.splice(source.index, 1);
+      destItems.splice(destination.index, 0, removed);
 
-        // Update the state with the modified data
-        setTasksData(updatedData);
-        
-      }
-    }
-  };
+      const updatedSourceColumn = {
+        ...sourceColumn,
+        items: sourceItems,
+      };
 
-  
-  console.log(tasksData)
-  
+      const updatedDestinationColumn = {
+        ...destinationColumn,
+        items: destItems,
+      };
+
+      const updatedColumns = columns.map((col) => {
+        if (col.id === source.droppableId) {
+          return updatedSourceColumn;
+        } else if (col.id === destination.droppableId) {
+          return updatedDestinationColumn;
+        }
+        return col
+      });
+      setColumns(updatedColumns)
+  }
+}
   return (
-    <DragDropContext onDragEnd={handleDragDrop}>
-      <Droppable droppableId="all" type="group">
-        {(provided) => (
-          <div
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            className="grid lg:grid-cols-3 md:grid-cols-1 grid-cols-1"
-          >
-            <div>
-              <h1>To-Do</h1>
-              <div className="grid grid-cols-1 gap-3">
-                {data?.map((item, index) => (
-                  <Draggable
-                    draggableId={item._id}
-                    key={item._id}
-                    index={index}
-                  >
-                    {(provided) => (
-                      <div
-                        {...provided.dragHandleProps}
-                        {...provided.draggableProps}
-                        ref={provided.innerRef}
-                      >
-                        <div className="text-gray-900 border border-[#304D30] rounded-lg bg-gray-100 w-[275px] p-3 h-52">
-                          <h1 className="text-xl font-bold">
-                            Title: {item.title}
-                          </h1>
-                          <p className="py-3">
-                            Description: {item.description}
-                            {expandedTask[item._id] ? (
-                              item.description.length > 20 ? (
-                                <span>
-                                  {item.description.slice(0, 50)}
-                                  <button
-                                    onClick={() => toggleExpand(item._id)}
-                                    className="text-[#304D30] underline font-bold"
-                                  >
-                                    See More
-                                  </button>
-                                </span>
-                              ) : (
-                                item.description
-                              )
-                            ) : (
-                              <span>
-                                {item.description}
-                                {item.description.length < 20 ? (
-                                  ""
-                                ) : (
-                                  <button
-                                    className="text-[#304D30] underline font-bold"
-                                    onClick={() => toggleExpand(item._id)}
-                                  >
-                                    See less
-                                  </button>
-                                )}
-                              </span>
-                            )}
-                          </p>
-                          <p>Deadline: {item.deadline}</p>
-                        </div>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
+    <div className="">
+      <DragDropContext onDragEnd={(result) => onDragEnd(result, columns, setColumns)}>
+        <div className="grid grid-cols-3   h-full w-full mx-auto">
+          {columns?.map((column) => (
+            <div key={column.id} className="h-[100vh] border border-[#304D30]">
+              <h2 className="text-3xl text-black border-b border-[#304D30]">
+                {column.name}
+              </h2>
+              <div>
+                <Droppable droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className=""
+                      style={{
+                        backgroundColor: snapshot.isDraggingOver
+                          ? "lightblue"
+                          : "lightgrey",
+                        padding: 4,
+                        minHeight: "100vh",
+                      }}
+                    >
+                      {column?.items?.map((item, index) => (
+                        <Draggable
+                          draggableId={item._id}
+                          key={item._id}
+                          index={index}
+                        >
+                          {(provided) => {
+                            return (
+                              <div className="flex justify-center">
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                >
+                                  <div className="text-gray-900 border border-[#304D30] rounded-lg bg-gray-100 w-[275px] p-3 h-52">
+                                    <h1 className="text-xl font-bold">
+                                      Title: {item.title}
+                                    </h1>
+                                    <p className="py-3">
+                                      Description: {item.description}
+                                      {expandedTask[item._id] ? (
+                                        item.description.length > 20 ? (
+                                          <span>
+                                            {item.description.slice(0, 50)}
+                                            <button
+                                              onClick={() =>
+                                                toggleExpand(item._id)
+                                              }
+                                              className="text-[#304D30] underline font-bold"
+                                            >
+                                              See More
+                                            </button>
+                                          </span>
+                                        ) : (
+                                          item.description
+                                        )
+                                      ) : (
+                                        <span>
+                                          {item.description}
+                                          {item.description.length < 20 ? (
+                                            ""
+                                          ) : (
+                                            <button
+                                              className="text-[#304D30] underline font-bold"
+                                              onClick={() =>
+                                                toggleExpand(item._id)
+                                              }
+                                            >
+                                              See less
+                                            </button>
+                                          )}
+                                        </span>
+                                      )}
+                                    </p>
+                                    <p>Deadline: {item.deadline}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
               </div>
-              {provided.placeholder}
             </div>
-            <div>
-              <h1>On-going</h1>
-              <Droppable droppableId="ongoing" type="task">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="grid grid-cols-1 gap-3 h-[100vh]"
-                  >
-                    {tasksData.map((item) => (
-                      <div key={item._id} className="text-gray-900 border border-[#304D30] rounded-lg bg-gray-100 w-[275px] p-3 h-52">
-                        <h1 className="text-xl font-bold">
-                          Title: {item.title}
-                        </h1>
-                        <p className="py-3">
-                          Description: {item.description}
-                          {expandedTask[item._id] ? (
-                            item.description.length > 20 ? (
-                              <span>
-                                {item.description.slice(0, 50)}
-                                <button
-                                  onClick={() => toggleExpand(item._id)}
-                                  className="text-[#304D30] underline font-bold"
-                                >
-                                  See More
-                                </button>
-                              </span>
-                            ) : (
-                              item.description
-                            )
-                          ) : (
-                            <span>
-                              {item.description}
-                              {item.description.length < 20 ? (
-                                ""
-                              ) : (
-                                <button
-                                  className="text-[#304D30] underline font-bold"
-                                  onClick={() => toggleExpand(item._id)}
-                                >
-                                  See less
-                                </button>
-                              )}
-                            </span>
-                          )}
-                        </p>
-                        <p>Deadline: {item.deadline}</p>
-                      </div>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </div>
-            <div>
-              <h1>Completed</h1>
-            </div>
-          </div>
-        )}
-      </Droppable>
-    </DragDropContext>
+          ))}
+        </div>
+      </DragDropContext>
+    </div>
   );
 };
 

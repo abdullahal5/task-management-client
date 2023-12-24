@@ -20,7 +20,7 @@ const Banner = () => {
               stay focused, achieve more effortlessly—all in one intuitive
               platform
             </p>
-            <Link to="/dashboard">
+            <Link to="/dashboard/to-do">
               <Button
                 variant="outlined"
                 className="border-2 hover:text-[#304D30]"

@@ -36,7 +36,7 @@ const Nav = () => {
       },
       {
         route: "Dashboard",
-        pathname: "/dashboard",
+        pathname: "/dashboard/to-do",
       },
       {
         route: "Login",

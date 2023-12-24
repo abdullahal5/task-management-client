@@ -8,8 +8,8 @@ import Paper from "@mui/material/Paper";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { FaTasks } from "react-icons/fa";
 import { AuthContext } from "../authprovider/Authprovider";
-import { VscSignOut } from "react-icons/vsc";
 import Swal from "sweetalert2";
+import { IoHomeSharp } from "react-icons/io5";
 
 
 const Dashboard = () => {
@@ -38,11 +38,11 @@ const pages = [
     pathname: "TO-DO",
     icon: <FaTasks color="#304D30" fontSize={"1.5rem"} />,
   },
-//   {
-//     path: "signOut",
-//     pathname: user ? <span onClick={handleLogOut}>Sign Out</span> : "sign up",
-//     icon: <VscSignOut color="#304D30" fontSize={"1.5rem"} />,
-//   },
+  {
+    path: "/",
+    pathname: user ? <span onClick={handleLogOut}>HOME</span> : "sign up",
+    icon: <IoHomeSharp color="#304D30" fontSize={"1.5rem"} />,
+  },
 ];
 
   return (
